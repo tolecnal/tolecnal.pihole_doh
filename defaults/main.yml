@@ -1,0 +1,28 @@
+---
+
+docker_pihole_container_name: pihole
+docker_pihole_image_name: pihole/pihole:latest
+
+docker_pihole_network: bridge
+docker_pihole_network_interface: "eth0"
+docker_pihole_enable_ipv6: false
+docker_pihole_enable_dnssec: false
+docker_pihole_admin_port: 8053
+
+docker_pihole_host_dir_dnsmasqd: /home/docker/pihole/etc/dnsmasq.d/
+docker_pihole_host_dir_pihole: /home/docker/pihole/etc/pihole/
+docker_pihole_adlist: "{{ docker_pihole_host_dir_pihole }}adlists.list"
+docker_pihole_volumes:
+  - "{{ docker_pihole_host_dir_pihole }}:/etc/pihole/"
+  - "{{ docker_pihole_host_dir_dnsmasqd }}:/etc/dnsmasq.d/"
+
+docker_pihole_timezone: "Europe/London"
+docker_pihole_dns_servers:
+  - "1.1.1.1"
+
+docker_pihole_rev_server: false
+docker_pihole_rev_server_domain: example.com
+docker_pihole_rev_server_target: 192.168.1.1
+docker_pihole_rev_server_cidr: 192.168.1.0/24
+
+docker_pihole_custom_lists: []

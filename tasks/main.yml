@@ -1,0 +1,28 @@
+---
+
+- name: Ensure Docker is installed
+  ansible.builtin.include_role:
+    name: geerlingguy.docker
+  tags:
+    - docker
+
+- name: Run prerequsites check
+  ansible.builtin.include_tasks: 00-passwords.yml
+  tags:
+    - passwords
+
+- name: Setup Cloudflare Proxy
+  ansible.builtin.include_tasks: 01-cloudflare.yml
+  tags:
+    - cloudflare
+
+- name: Configure network settings
+  ansible.builtin.include_tasks: 02-network.yml
+  tags:
+    - network
+
+- name: Configure the Docker image
+  ansible.builtin.include_tasks: 03-pihole.yml
+  tags:
+    - docker
+    - urls

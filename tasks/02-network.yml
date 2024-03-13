@@ -1,0 +1,70 @@
+---
+
+- name: Get a list of network cards
+  ansible.builtin.shell:
+    cmd: find /sys/class/net -mindepth 1 -maxdepth 1 -lname '*virtual*' -prune -o -printf '%f\n'
+  register: network_cards
+  changed_when: network_cards.rc != 0
+  tags:
+    - network
+
+- name: Get a list of config files in /etc/netplan
+  ansible.builtin.find:
+    paths: "/etc/netplan"
+    patterns: "*.yaml"
+    recurse: true
+  register: netplan_files
+  tags:
+    - network
+
+- name: Install yq python package
+  ansible.builtin.pip:
+    name: yq
+  tags:
+    - network
+
+- name: Install jq apt package
+  ansible.builtin.apt:
+    pkg: jq
+    state: present
+  tags:
+    - network
+
+- name: Change permissions for netplan files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  with_items:
+    - "{{ netplan_files.files }}"
+  tags:
+    - network
+
+- name: Edit netplan files using yq
+  ansible.builtin.shell:
+    cmd: yq -i -y '.network.ethernets."{{ item[1] }}".nameservers.addresses = ["1.1.1.1"]' "{{ item[0].path }}"
+  register: yq_res
+  changed_when: yq_res.rc != 0
+  with_nested:
+    - "{{ netplan_files.files }}"
+    - "{{ network_cards.stdout }}"
+  tags:
+    - network
+
+- name: Ensure the systemd-resolved service is stopped and disabled
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+  when: ansible_os_family == 'Debian'
+  tags:
+    - network
+
+- name: Replace nameserver in resolv.conf
+  ansible.builtin.lineinfile:
+    path: /etc/resolv.conf  # Path to the file
+    regexp: '^nameserver\s+127\.0\.0\.53$'  # Regular expression to match the line
+    line: 'nameserver 1.1.1.1'  # The new line to replace the matched line with
+  tags:
+    - network

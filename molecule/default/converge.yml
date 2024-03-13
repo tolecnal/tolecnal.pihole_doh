@@ -1,0 +1,42 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    ohmyzsh_users:
+      - root
+    apt_packages:
+      - git
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 600
+      changed_when: false
+      when: ansible_os_family == 'Debian'
+
+  roles:
+    - role: tolecnal.ohmyzsh
+
+  post_tasks:
+    - name: Verify .zshrc exists
+      ansible.builtin.stat:
+        path: ~/.zshrc
+      register: conf_result
+
+    - name: The zsh configuration file exists
+      ansible.builtin.debug:
+        msg: "The zsh configuration file exists"
+      when: conf_result.stat.exists
+
+    - name: Verify that p10k config file exists
+      ansible.builtin.stat:
+        path: ~/.p10k.zsh
+      register: tpm_result
+
+    - name: The p10k config file is installed
+      ansible.builtin.debug:
+        msg: "The p10k config file is installed"
+      when: tpm_result.stat.exists

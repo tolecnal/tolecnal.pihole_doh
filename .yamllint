@@ -1,0 +1,11 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 190
+    level: warning
+
+ignore: |
+  .github/workflows/stale.yml
+  ansible-venv/

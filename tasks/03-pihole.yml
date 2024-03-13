@@ -1,0 +1,92 @@
+---
+
+- name: Get IPv4 address
+  ansible.builtin.set_fact:
+    __docker_ipv4_address: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+  tags:
+    - docker
+
+- name: Print IPv4 address
+  ansible.builtin.debug:
+    var: __docker_ipv4_address
+  tags:
+    - docker
+
+- name: Setup the pi-hole docker container
+  community.docker.docker_container:
+    name: "{{ docker_pihole_container_name }}"
+    image: "{{ docker_pihole_image_name }}"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    networks_cli_compatible: true
+    networks:
+      - name: "{{ docker_pihole_network | default('bridge') }}"
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "{{ docker_pihole_admin_port }}:80/tcp"
+    comparisons:
+      networks: strict
+    volumes: "{{ docker_pihole_volumes }}"
+    env:
+      TZ: "{{ docker_pihole_timezone }}"
+      INTERFACE: "{{ docker_pihole_network_interface }}"
+      WEBPASSWORD: "{{ WEBPASS }}"
+      FTLCONF_LOCAL_IPV4: "{{ __docker_ipv4_address }}"
+      PIHOLE_DNS_: "{{ __docker_ipv4_address }}#5553"
+      DNSSEC: '"{{ docker_pihole_enable_dnssec }}"'
+      IPv6: '"{{ docker_pihole_enable_ipv6 }}"'
+    capabilities: NET_ADMIN
+    dns_servers: "{{ docker_pihole_dns_servers }}"
+  tags:
+    - docker
+
+- name: Check URLs
+  ansible.builtin.uri:
+    url: "{{ item }}"
+  register: url_response
+  ignore_errors: true
+  loop: "{{ docker_pihole_custom_lists }}"
+  tags:
+    - urls
+
+- name: Filter URLs based on response
+  ansible.builtin.set_fact:
+    valid_urls: "{{ valid_urls | default([]) + [item.item] }}"
+  when: item.status == 200
+  loop: "{{ url_response.results }}"
+  tags:
+    - urls
+
+- name: Display valid URLs
+  ansible.builtin.debug:
+    var: valid_urls
+  tags:
+    - urls
+
+- name: Add custom URLs to adlist if defined
+  ansible.builtin.lineinfile:
+    path: "{{ docker_pihole_adlist }}"
+    line: "{{ item }}"
+    state: present
+  loop: "{{ valid_urls }}"
+  when: valid_urls is defined
+  tags:
+    - urls
+
+- name: Run command inside Docker container
+  community.docker.docker_container_exec:
+    container: "{{ docker_pihole_container_name }}"
+    command: /bin/bash -c "pihole -g"
+  register: docker_command_result
+  when: valid_urls is defined
+  tags:
+    - urls
+
+- name: Display command result
+  ansible.builtin.debug:
+    var: docker_command_result.stdout_lines
+  when: valid_urls is defined
+  tags:
+    - urls

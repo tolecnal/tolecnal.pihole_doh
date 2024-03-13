@@ -1,0 +1,30 @@
+---
+dependencies:
+  - name: geerlingguy.docker
+  - name: kwoodson.yedit
+
+galaxy_info:
+  role_name: pihole_doh
+  namespace: tolecnal
+  author: "Jostein Elvaker Haande <tolecnal@tolecnal.net"
+  description: Deploy pihole with Cloudflare's DNS over HTTPS (DoH)
+  license: "license (BSD, MIT)"
+  min_ansible_version: "2.13.0"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - dns
+    - pihole
+    - cloudflare
+    - tools
+    - linux
+    - https
