@@ -18,7 +18,7 @@
       when: ansible_os_family == 'Debian'
 
   roles:
-    - role: tolecnal.ohmyzsh
+    - role: tolecnal.pihole-doh
 
   post_tasks:
     - name: Verify .zshrc exists
