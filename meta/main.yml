@@ -9,7 +9,7 @@ galaxy_info:
   author: "Jostein Elvaker Haande <tolecnal@tolecnal.net"
   description: Deploy pihole with Cloudflare's DNS over HTTPS (DoH)
   license: "license (BSD, MIT)"
-  min_ansible_version: "2.13.0"
+  min_ansible_version: "2.15.0"
 
   platforms:
     - name: Ubuntu
