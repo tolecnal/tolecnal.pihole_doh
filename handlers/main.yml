@@ -1,0 +1,12 @@
+---
+
+- name: Restart pihole container
+  community.docker.docker_container:
+    name: "{{ docker_pihole_container_name }}"
+    state: started
+    restart: true
+
+- name: Restart Cloudflare Proxy Service
+  ansible.builtin.systemd_service:
+    name: cloudflared-proxy-dns
+    state: restarted
