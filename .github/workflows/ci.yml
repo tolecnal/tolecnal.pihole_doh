@@ -28,10 +28,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install test dependencies.
-        run: |
-          pip3 install yamllint ansible ansible-lint
-          ansible-galaxy role install geerlingguy.docker
-          ansible-galaxy role install kwoodson.yedit
+        run: pip3 install yamllint ansible ansible-lint
 
       - name: Lint code.
         run: |
@@ -63,7 +60,10 @@ jobs:
           python-version: "3.x"
 
       - name: Install test dependencies.
-        run: pip3 install ansible molecule molecule-plugins[docker] docker
+        run: |
+          pip3 install ansible molecule molecule-plugins[docker] docker
+          ansible-galaxy role install geerlingguy.docker
+          ansible-galaxy role install kwoodson.yedit
 
       - name: Run Molecule tests.
         run: molecule test
