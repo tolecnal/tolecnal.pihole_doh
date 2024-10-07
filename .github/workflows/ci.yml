@@ -28,7 +28,10 @@ jobs:
           python-version: "3.x"
 
       - name: Install test dependencies.
-        run: pip3 install yamllint ansible ansible-lint
+        run: |
+          pip3 install yamllint ansible ansible-lint
+          ansible-galaxy role install geerlingguy.docker
+          ansible-galaxy role install kwoodson.yedit
 
       - name: Lint code.
         run: |
