@@ -1,0 +1,10 @@
+---
+
+exclude_paths:
+    - ~/.ansible/roles
+    - ./molecule/
+
+skip_list:
+    - package-latest
+    - latest[git]
+    - yaml[line-length]

@@ -1,0 +1,26 @@
+---
+namespace: tolecnal
+name: pihole_doh
+version: "1.0.5"
+readme: README.md
+
+authors:
+  - "Jostein Elvaker Haande <tolecnal@tolecnal.net>"
+description: Deploy pihole with Cloudflare's DNS over HTTPS (DoH)
+license:
+  - MIT
+
+tags:
+  - dns
+  - pihole
+  - cloudflare
+  - tools
+  - linux
+  - https
+
+repository: https://github.com/tolecnal/tolecnal.pihole_doh
+documentation: https://github.com/tolecnal/tolecnal.pihole_doh
+homepage: https://tolecnal.net
+issues: https://github.com/tolecnal/tolecnal.pihole_doh/issues
+
+build_ignore: []

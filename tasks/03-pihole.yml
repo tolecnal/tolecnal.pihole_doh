@@ -1,0 +1,170 @@
+---
+
+- name: Ensure python3-requests is installed
+  ansible.builtin.apt:
+    name: python3-requests
+    state: present
+  when: ansible_os_family == 'Debian'
+  tags:
+    - docker
+
+- name: Get IPv4 address
+  ansible.builtin.set_fact:
+    __docker_ipv4_address: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+  tags:
+    - docker
+
+- name: Print IPv4 address
+  ansible.builtin.debug:
+    var: __docker_ipv4_address
+  tags:
+    - docker
+
+- name: Conditionally set environment variables for Pi-hole reverse server
+  ansible.builtin.set_fact:
+    my_env_vars:
+      REV_SERVER: "true"
+      REV_SERVER_CIDR: "{{ docker_pihole_rev_server_cidr }}"
+      REV_SERVER_TARGET: "{{ docker_pihole_rev_server_target }}"
+      REV_SERVER_DOMAIN: "{{ docker_pihole_rev_server_domain }}"
+  when: docker_pihole_rev_server
+  tags:
+    - docker
+
+- name: Setup the pi-hole docker container
+  community.docker.docker_container:
+    name: "{{ docker_pihole_container_name }}"
+    image: "{{ docker_pihole_image_name }}"
+    state: started
+    restart: false
+    restart_policy: unless-stopped
+    networks_cli_compatible: true
+    networks:
+      - name: "{{ docker_pihole_network | default('bridge') }}"
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "{{ docker_pihole_admin_port }}:80/tcp"
+    comparisons:
+      networks: strict
+    volumes: "{{ docker_pihole_volumes }}"
+    env: "{{ { 'TZ': docker_pihole_timezone,
+        'INTERFACE': docker_pihole_network_interface,
+        'WEBPASSWORD': web_pass,
+        'FTLCONF_LOCAL_IPV4': __docker_ipv4_address,
+        'PIHOLE_DNS_': __docker_ipv4_address + '#5553',
+        'DNSSEC': docker_pihole_enable_dnssec | string,
+        'IPv6': docker_pihole_enable_ipv6 | string
+      } | combine(my_env_vars | default({})) }}"
+    capabilities: NET_ADMIN
+    dns_servers: "{{ docker_pihole_dns_servers }}"
+  tags:
+    - docker
+
+- name: Check URLs
+  ansible.builtin.uri:
+    url: "{{ item }}"
+  register: url_response
+  ignore_errors: true
+  loop: "{{ docker_pihole_custom_lists }}"
+  tags:
+    - docker
+    - urls
+
+- name: Filter URLs based on response
+  ansible.builtin.set_fact:
+    valid_urls: "{{ valid_urls | default([]) + [item.item] }}"
+  when: item.status == 200
+  loop: "{{ url_response.results }}"
+  tags:
+    - docker
+    - urls
+
+- name: Display valid URLs
+  ansible.builtin.debug:
+    var: valid_urls
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Ensure the file is present
+  ansible.builtin.file:
+    path: "{{ docker_pihole_adlist }}"
+    state: touch  # Create the file if it doesn't exist
+    mode: "0664"
+  when: valid_urls is defined
+  tags:
+    - docker
+    - ensure_file
+
+- name: Ensure the file is empty
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ docker_pihole_adlist }}"
+    force: true  # Ensure the file is overwritten with empty content if it's not empty
+    mode: "0664"
+  when: valid_urls is defined
+  tags:
+    - docker
+    - ensure_file
+
+- name: Add custom URLs to adlist if defined
+  ansible.builtin.lineinfile:
+    path: "{{ docker_pihole_adlist }}"
+    line: "{{ item }}"
+    state: present
+  loop: "{{ valid_urls }}"
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Run command inside Docker container
+  community.docker.docker_container_exec:
+    container: "{{ docker_pihole_container_name }}"
+    command: /bin/bash -c "pihole -g"
+  register: docker_command_result
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Display command result
+  ansible.builtin.debug:
+    var: docker_command_result.stdout_lines
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Wait for the pihole container to be healthy
+  community.docker.docker_container_info:
+    name: pihole
+  register: container_info
+  until: (container_info.container.State.Status == 'running' and container_info.container.State.Health.Status == 'healthy')
+  retries: 15
+  delay: 5
+  when: valid_urls is defined
+  tags:
+    - docker
+
+- name: Insert adlist into pihole if it doesn't already exist
+  ansible.builtin.shell: |
+    docker exec pihole sqlite3 /etc/pihole/gravity.db "INSERT INTO adlist (address, enabled, comment)
+    SELECT '{{ item }}', 1, 'Example Block List'
+    WHERE NOT EXISTS (SELECT 1 FROM adlist WHERE address = '{{ item }}');"
+  loop: "{{ valid_urls }}"
+  register: url_register
+  changed_when: url_register.rc != 0
+  when: valid_urls is defined
+  tags:
+    - docker
+
+- name: Reload pihole
+  ansible.builtin.command: docker exec pihole pihole -g
+  register: reload_register
+  changed_when: reload_register.rc != 0
+  when: valid_urls is defined
+  tags:
+    - docker
