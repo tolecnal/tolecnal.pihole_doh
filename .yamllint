@@ -1,0 +1,19 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 190
+    level: warning
+  comments:
+    min-spaces-from-content: 1  # Ensure there is at least 1 space between comments and content.
+  comments-indentation: false  # Disable strict indentation rules for comments.
+  braces:
+    max-spaces-inside: 1  # Allow a maximum of 1 space inside braces.
+  octal-values:
+    forbid-implicit-octal: true  # Forbid implicit octal values.
+    forbid-explicit-octal: true  # Forbid explicit octal values.
+
+ignore: |
+  .github/workflows/stale.yml
+  ansible-venv/

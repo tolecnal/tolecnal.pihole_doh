@@ -1,0 +1,55 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+        # ignore formatting-prettier to have an accurate prettier comparison
+        exclude: >
+          (?x)^(
+            test/eco/.*.result|
+            examples/yamllint/.*|
+            test/fixtures/formatting-before/.*|
+            test/fixtures/formatting-prettier/.*
+          )$
+      - id: trailing-whitespace
+        exclude: >
+          (?x)^(
+            examples/playbooks/(with-skip-tag-id|unicode).yml|
+            examples/playbooks/example.yml|
+            examples/yamllint/.*|
+            test/eco/.*.result|
+            test/fixtures/formatting-before/.*
+          )$
+      - id: mixed-line-ending
+      - id: fix-byte-order-marker
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        exclude: >
+          (?x)^(
+            examples/playbooks/templates/.*|
+            examples/yamllint/.*|
+            examples/other/some.j2.yaml|
+            examples/playbooks/collections/.*|
+            test/fixtures/formatting-before/.*
+          )$
+        files: \.(yaml|yml)$
+        types: [file, yaml]
+        entry: yamllint --strict
+  - repo: https://github.com/ansible/ansible-lint.git
+    rev: v24.2.2
+    hooks:
+      - id: ansible-lint
+        exclude: >
+          (?x)^(
+            molecule/.*
+          )$
+        files: \.(yaml|yml)$
+        name: Ansible Lint
+        description: Run configurations on .ansible-lint file
+        verbose: true
+        # args: [-p, ./ansible/*]

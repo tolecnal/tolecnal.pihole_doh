@@ -1,0 +1,140 @@
+---
+
+- name: Ensure Cloudflare GPG key is added
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-main.gpg
+    mode: "0666"
+  when: ansible_os_family == 'Debian'
+  tags:
+    - cloudflare
+
+# TODO
+# Cloudflare has not released a specific release for noble yet,
+# so we have to use the Jammy repository for now.
+# Ref: https://github.com/cloudflare/cloudflared/issues/1235
+- name: Add APT source (noble)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared jammy main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "noble"
+  tags:
+    - cloudflare
+
+- name: Add APT source (focal)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared focal main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "focal"
+  tags:
+    - cloudflare
+
+- name: Add APT source (jammy)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared jammy main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "jammy"
+  tags:
+    - cloudflare
+
+- name: Add APT source (buster)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared buster main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "buster"
+  tags:
+    - cloudflare
+
+- name: Add APT source (bullseye)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared jammy main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "bullseye"
+  tags:
+    - cloudflare
+
+- name: Add APT source (bookworm)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "bookworm"
+  tags:
+    - cloudflare
+
+- name: Install cloudflared package
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+  tags:
+    - cloudflare
+
+- name: Get IP address for host primary network card
+  ansible.builtin.set_fact:
+    __docker_ipv4_address: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+
+- name: Add the Cloudflare Proxy Service
+  ansible.builtin.blockinfile:
+    path: /etc/systemd/system/cloudflared-proxy-dns.service
+    append_newline: true
+    prepend_newline: true
+    create: true
+    mode: "0664"
+    block: |
+      [Unit]
+      Description=DNS over HTTPS (DoH) proxy client
+      Wants=network-online.target nss-lookup.target
+      Before=nss-lookup.target
+
+      [Service]
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+      CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+      DynamicUser=yes
+      ExecStart=/usr/local/bin/cloudflared proxy-dns --port 5553 --address "{{ __docker_ipv4_address }}"
+
+      [Install]
+      WantedBy=multi-user.target
+  when: ansible_os_family == 'Debian'
+  tags:
+    - cloudflare
+
+- name: Force systemd to reload its config files
+  ansible.builtin.systemd_service:
+    daemon_reexec: true
+  when: ansible_os_family == 'Debian'
+  tags:
+    - cloudflare
+
+- name: Ensure the Cloudflare Proxy Service is enabled
+  ansible.builtin.systemd_service:
+    name: cloudflared-proxy-dns
+    enabled: true
+  when: ansible_os_family == 'Debian'
+  notify: Restart Cloudflare Proxy Service
+  tags:
+    - cloudflare
