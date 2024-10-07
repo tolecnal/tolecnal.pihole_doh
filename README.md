@@ -1,10 +1,13 @@
-# ansible-role-tmux
+# ansible-role-pihole-doh
 
-Deploy and configure Oh My Zsh with the Powerlevel 10K theme
+Deploy and configure Pihole DNS Docker image which uses Cloudflare's DNS service over HTTPS
 
 ## Requirements
 
-None
+Role will install the following Ansible roles:
+
+- geerlingguy.docker
+- kwoodson.yedit
 
 ## Role variables
 
@@ -12,69 +15,80 @@ Available variables are listed below, along with the default values (see: `defau
 
 ---
 
-    ohmyzsh_users: []
+    docker_pihole_container_name: pihole
 
-List of the users to run the role on.
+Name of the Docker container.
 
-    ohmyzsh_chsh: true
+    docker_pihole_image_name: pihole/pihole:latest
 
-Change the default shell to zsh?
+Name of the Docker image to pull.
 
-    ohmyzsh_zsh_path: "/bin/zsh"
+    docker_pihole_network: bridge
 
-The path to the zsh binary.
+Which Docker network type to use.
 
-    ohmyzsh_theme: "powerlevel10k/powerlevel10k"
+    docker_pihole_network_interface: "eth0"
 
-The theme to define in .zshrc
+Which network that Pihole will use.
 
-    ohmyzsh_case_sensitive_completion: false
+    docker_pihole_enable_ipv6: false
 
-Enable case sensitive completion?
+Enable support for IPv6?
 
-    ohmyzsh_hyphen_insensitive_completion: false
+    docker_pihole_enable_dnssec: false
 
-Enable hyphen insensitive completion?
+Enable support for DNSSEC?
 
-    ohmyzsh_disable_auto_update: false
+    docker_pihole_admin_port: 8053
 
-Disable auto update of oh-my-zsh?
+Which port the Pihole Admin Interface will bind to.
 
-    ohmyzsh_auto_update_interval: 30
+    docker_pihole_host_dir_dnsmasqd: home/docker/pihole/etc/dnsmasq.d/
 
-The interval oh-my-zsh will check for updates.
+Path to the dnsmasq volume.
 
-    ohmyzsh_disable_ls_colors: false
+    docker_pihole_host_dir_pihole: /home/docker/pihole/etc/pihole/
 
-Disable colours for `ls`?
+Path to the Pihole config volume.
 
-    ohmyzsh_disable_auto_title: false
+    docker_pihole_adlist: "{{ docker_pihole_host_dir_pihole }}adlists.list"
 
-Disable oh-my-zsh's auto title feature?
+Path and name for the `adlists.list` file.
 
-    ohmyzsh_enable_auto_correction: true
+    docker_pihole_volumes:
+      - "{{ docker_pihole_host_dir_pihole }}:/etc/pihole/"
+      - "{{ docker_pihole_host_dir_dnsmasqd }}:/etc/dnsmasq.d/"
 
-Enable oh-my-zsh's auto correction feature?
+Mapping for the Pihole volumes.
 
-    ohmyzsh_completion_waiting_dots: true
+    docker_pihole_timezone: "Europe/London"
 
-Enable the waiting dots for autocomplete feature?
+Timezone that Pihole will use.
 
-    ohmyzsh_history_stamps: "yyyy-mm-dd"
+    docker_pihole_dns_servers:
+      - "1.1.1.1"
 
-Timestamp format to use for the `.zsh_history` file.
+DNS server that Pihole will use
 
-    ohmyzsh_plugins: "autoupdate colored-man-pages docker docker-compose git history history-substring-search kubectl nmap pip python rsync systemd tmux ubuntu vagrant vi-mode aws terraform"
+    docker_pihole_rev_server: false
 
-Which plugins to enable.
+Whether or not Pihole will use a conditional forward for a domain.
 
-    ohmyzsh_autosuggestions_plugin: true
+    docker_pihole_rev_server_domain: example.com
 
-Enable the autosuggestions feature?
+The domain to use conditional forwarding for.
 
-    ohmyzsh_language: "en_US.UTF-8"
+    docker_pihole_rev_server_target: 192.168.1.1
 
-Language to set for both `LANG` and `LANGUAGE`.
+The IP address to the DNS server that serves request for the conditional forward.
+
+    docker_pihole_rev_server_cidr: 192.168.1.0/24
+
+The CIDR notation for the network that the conditional forward will apply to.
+
+    docker_pihole_custom_lists: []
+
+List of URLs to public blacklists that Pihole will use.
 
 ## Dependencies
 
@@ -82,22 +96,36 @@ None
 
 ## Example playbook
 
-First install the role using Ansible Galaxy: `ansible-galaxy role install tolecnal.ohmyzsh`
+First install the role using Ansible Galaxy: `ansible-galaxy role install tolecnal.pihole_doh`.
 
-Then create a playbook like this, replace `ohmyzsh_users` with the user(s) you want to run the role on.
+Then create a file called `passwords.yml` which contains the password `web_pass`. I of course recommend using Ansible vault to create and store your secrets.
+
+Then create a playbook like this.
 
     ---
 
-    - name: Run tolecnal.ohmyzsh role
-      hosts: all
-      become: true
-      gather_facts: true
+    - name: Setup and configure pihole with DoH
+    hosts: localhost
+    become: true
+    gather_facts: true
 
-      vars:
-        ohmyzsh_users: tolecnal
+    vars_files:
+        - passwords.yml
 
-      roles:
-        - tolecnal.ohmyzsh
+    vars:
+        docker_pihole_timezone: "CEST"
+        docker_pihole_enable_dnssec: true
+        docker_pihole_custom_lists:
+          - https://v.firebog.net/hosts/AdguardDNS.txt
+          - https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
+          - https://v.firebog.net/hosts/RPiList-Malware.txt
+        docker_pihole_rev_server: true
+        docker_pihole_rev_server_domain: xiro.net
+        docker_pihole_rev_server_target: "192.168.127.1"
+        docker_pihole_rev_server_cidr: "192.168.126.0/23"
+
+    roles:
+        - tolecnal.pihole_doh
 
 ## License
 

@@ -18,9 +18,9 @@ tags:
   - linux
   - https
 
-repository: https://github.com/tolecnal/ansible-role-ohmyzsh
-documentation: https://github.com/tolecnal/ansible-role-ohmyzsh
+repository: https://github.com/tolecnal/ansible-role-pihole-doh
+documentation: https://github.com/tolecnal/ansible-role-pihole-doh
 homepage: https://tolecnal.net
-issues: https://github.com/tolecnal/ansible-role-ohmyzsh/issues
+issues: https://github.com/tolecnal/ansible-role-pihole-doh/issues
 
 build_ignore: []

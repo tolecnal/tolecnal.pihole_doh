@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-10-08
+
+Version: 1.0.1
+
+Massive rewrite, adding support for Ubuntu 24.04.
+
 ## 2023-11-29
 
 Version: 1.0.0
