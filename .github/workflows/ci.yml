@@ -42,12 +42,11 @@ jobs:
       fail-fast: ${{ !contains(github.event_name, 'pull_request') }}
       matrix:
         distro:
+          - ubuntu2404
           - ubuntu2204
           - ubuntu2004
           - debian11
           - debian12
-          - centos7
-          - centos8
 
     steps:
       - name: Check out the codebase.
