@@ -2,14 +2,20 @@
 - name: Converge
   hosts: all
   become: true
+  gather_facts: true
 
   vars:
-    ohmyzsh_users:
-      - root
-    apt_packages:
-      - git
+
+    web_pass: !vault |
+            $ANSIBLE_VAULT;1.1;AES256
+            33316563366466396462303431393135336361656136613564653565346439303666393738303632
+            3066383832663961353537343130633538343963376332650a663032323732663866656235383836
+            31616632333031343937303537373364636562383064326137333233643964643130336561323633
+            3861303734356537330a626137613939333636356263626366666132323133643662303433303162
+            38333731336363313234613261666231316436316132663834306232323264386665
 
   pre_tasks:
+
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
@@ -17,26 +23,11 @@
       changed_when: false
       when: ansible_os_family == 'Debian'
 
+    - name: Install python3-requests
+      ansible.builtin.apt:
+        name: python3-requests
+        state: present
+
   roles:
     - role: tolecnal.pihole-doh
-
-  post_tasks:
-    - name: Verify .zshrc exists
-      ansible.builtin.stat:
-        path: ~/.zshrc
-      register: conf_result
-
-    - name: The zsh configuration file exists
-      ansible.builtin.debug:
-        msg: "The zsh configuration file exists"
-      when: conf_result.stat.exists
-
-    - name: Verify that p10k config file exists
-      ansible.builtin.stat:
-        path: ~/.p10k.zsh
-      register: tpm_result
-
-    - name: The p10k config file is installed
-      ansible.builtin.debug:
-        msg: "The p10k config file is installed"
-      when: tpm_result.stat.exists
+    - role: geerlingguy.docker

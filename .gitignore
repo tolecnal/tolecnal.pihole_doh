@@ -1,2 +1,3 @@
 ansible-venv/**
 .vscode
+.vault_pw

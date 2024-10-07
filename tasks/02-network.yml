@@ -1,25 +1,35 @@
 ---
 
+- name: Check if /etc/netplan exists
+  ansible.builtin.stat:
+    path: /etc/netplan
+  register: netplan_folder
+  tags:
+    - network
+
 - name: Get a list of network cards
   ansible.builtin.shell:
     cmd: find /sys/class/net -mindepth 1 -maxdepth 1 -lname '*virtual*' -prune -o -printf '%f\n'
   register: network_cards
   changed_when: network_cards.rc != 0
+  when: netplan_folder.stat.exists
   tags:
     - network
 
 - name: Get a list of config files in /etc/netplan
   ansible.builtin.find:
-    paths: "/etc/netplan"
+    paths: "/etc/netplan/"
     patterns: "*.yaml"
     recurse: true
   register: netplan_files
+  when: netplan_folder.stat.exists
   tags:
     - network
 
 - name: Install yq python package
   ansible.builtin.pip:
     name: yq
+  when: netplan_folder.stat.exists
   tags:
     - network
 
@@ -27,6 +37,7 @@
   ansible.builtin.apt:
     pkg: jq
     state: present
+  when: netplan_folder.stat.exists
   tags:
     - network
 
@@ -38,6 +49,7 @@
     mode: "0600"
   with_items:
     - "{{ netplan_files.files }}"
+  when: netplan_folder.stat.exists
   tags:
     - network
 
@@ -49,22 +61,20 @@
   with_nested:
     - "{{ netplan_files.files }}"
     - "{{ network_cards.stdout }}"
+  when: netplan_folder.stat.exists
   tags:
     - network
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
 
 - name: Ensure the systemd-resolved service is stopped and disabled
   ansible.builtin.systemd_service:
     name: systemd-resolved
     state: stopped
     enabled: false
-  when: ansible_os_family == 'Debian'
-  tags:
-    - network
-
-- name: Replace nameserver in resolv.conf
-  ansible.builtin.lineinfile:
-    path: /etc/resolv.conf  # Path to the file
-    regexp: '^nameserver\s+127\.0\.0\.53$'  # Regular expression to match the line
-    line: 'nameserver 1.1.1.1'  # The new line to replace the matched line with
+  when:
+    - ansible_os_family == 'Debian'
+    - "'systemd-resolved.service' in ansible_facts.services"
   tags:
     - network

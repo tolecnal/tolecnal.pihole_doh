@@ -9,6 +9,22 @@
   tags:
     - cloudflare
 
+# TODO
+# Cloudflare has not released a specific release for noble yet,
+# so we have to use the Jammy repository for now.
+# Ref: https://github.com/cloudflare/cloudflared/issues/1235
+- name: Add APT source (noble)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/cloudflare.list
+    line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared jammy main"
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+  when: ansible_distribution_release == "noble"
+  tags:
+    - cloudflare
+
 - name: Add APT source (focal)
   ansible.builtin.lineinfile:
     path: /etc/apt/sources.list.d/cloudflare.list
@@ -114,11 +130,11 @@
   tags:
     - cloudflare
 
-- name: Ensure the Cloudflare Proxy Service is enabled and started
+- name: Ensure the Cloudflare Proxy Service is enabled
   ansible.builtin.systemd_service:
     name: cloudflared-proxy-dns
-    state: restarted
     enabled: true
   when: ansible_os_family == 'Debian'
+  notify: Restart Cloudflare Proxy Service
   tags:
     - cloudflare
