@@ -7,7 +7,7 @@ name: Release
 
 defaults:
   run:
-    working-directory: "tolecnal.pihole_doh"
+    working-directory: "tolecnal.pihole-doh"
 
 jobs:
   release:

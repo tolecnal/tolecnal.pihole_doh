@@ -1,5 +1,9 @@
 # Changelog
 
+## 2024-10-08/4
+
+Fixing release information.
+
 ## 2024-10-08/3
 
 Fixing release information.
