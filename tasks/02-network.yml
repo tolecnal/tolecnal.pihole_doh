@@ -1,5 +1,4 @@
 ---
-
 - name: Check if /etc/netplan exists
   ansible.builtin.stat:
     path: /etc/netplan
@@ -61,14 +60,16 @@
     - network
 
 - name: Stop and mask services that may be holding port 53
-  ansible.builtin.shell: |
-    systemctl stop systemd-resolved.socket 2>/dev/null || true
-    systemctl mask systemd-resolved.socket 2>/dev/null || true
-    systemctl stop systemd-resolved 2>/dev/null || true
-    systemctl mask systemd-resolved 2>/dev/null || true
-    systemctl stop dnscrypt-proxy.socket 2>/dev/null || true
-    systemctl mask dnscrypt-proxy.socket 2>/dev/null || true
-  changed_when: false
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  failed_when: false
+  loop:
+    - systemd-resolved.socket
+    - systemd-resolved
+    - dnscrypt-proxy.socket
   when: ansible_facts['os_family'] == 'Debian'
   tags:
     - network
@@ -83,4 +84,3 @@
     - not netplan_folder.stat.exists
   tags:
     - network
-

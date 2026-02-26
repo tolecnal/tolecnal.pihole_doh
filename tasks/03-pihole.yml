@@ -1,5 +1,4 @@
 ---
-
 - name: Ensure python3-requests is installed
   ansible.builtin.apt:
     name: python3-requests
@@ -42,14 +41,14 @@
     comparisons:
       networks: strict
     volumes: "{{ docker_pihole_volumes }}"
-    env: "{{ { 'TZ': docker_pihole_timezone,
-        'INTERFACE': docker_pihole_network_interface,
-        'WEBPASSWORD': web_pass,
-        'FTLCONF_webserver_api_password': web_pass,
-        'FTLCONF_dns_reply_host_IPv4': __docker_ipv4_address,
-        'FTLCONF_dns_upstreams': __docker_ipv4_address + '#5300',
-        'DNSSEC': docker_pihole_enable_dnssec | string,
-        'IPv6': docker_pihole_enable_ipv6 | string
+    env: "{{ {'TZ': docker_pihole_timezone,
+      'INTERFACE': docker_pihole_network_interface,
+      'WEBPASSWORD': web_pass,
+      'FTLCONF_webserver_api_password': web_pass,
+      'FTLCONF_dns_reply_host_IPv4': __docker_ipv4_address,
+      'FTLCONF_dns_upstreams': __docker_ipv4_address + '#5300',
+      'DNSSEC': docker_pihole_enable_dnssec | string,
+      'IPv6': docker_pihole_enable_ipv6 | string
       } | combine(my_env_vars | default({})) }}"
     capabilities:
       - NET_ADMIN
@@ -170,6 +169,7 @@
     - valid_urls is defined
     - item not in (__pihole_existing_urls | default([]))
   register: __adlist_added
+  changed_when: true
   tags:
     - docker
     - urls
