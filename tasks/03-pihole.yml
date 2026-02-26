@@ -4,19 +4,13 @@
   ansible.builtin.apt:
     name: python3-requests
     state: present
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
   tags:
     - docker
 
 - name: Get IPv4 address
   ansible.builtin.set_fact:
-    __docker_ipv4_address: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
-  tags:
-    - docker
-
-- name: Print IPv4 address
-  ansible.builtin.debug:
-    var: __docker_ipv4_address
+    __docker_ipv4_address: "{{ ansible_facts['default_ipv4']['address'] | default(ansible_facts['all_ipv4_addresses'][0]) }}"
   tags:
     - docker
 
@@ -51,12 +45,15 @@
     env: "{{ { 'TZ': docker_pihole_timezone,
         'INTERFACE': docker_pihole_network_interface,
         'WEBPASSWORD': web_pass,
-        'FTLCONF_LOCAL_IPV4': __docker_ipv4_address,
-        'PIHOLE_DNS_': __docker_ipv4_address + '#5553',
+        'FTLCONF_webserver_api_password': web_pass,
+        'FTLCONF_dns_reply_host_IPv4': __docker_ipv4_address,
+        'FTLCONF_dns_upstreams': __docker_ipv4_address + '#5300',
         'DNSSEC': docker_pihole_enable_dnssec | string,
         'IPv6': docker_pihole_enable_ipv6 | string
       } | combine(my_env_vars | default({})) }}"
-    capabilities: NET_ADMIN
+    capabilities:
+      - NET_ADMIN
+      - SYS_NICE
     dns_servers: "{{ docker_pihole_dns_servers }}"
   tags:
     - docker
@@ -80,67 +77,9 @@
     - docker
     - urls
 
-- name: Display valid URLs
-  ansible.builtin.debug:
-    var: valid_urls
-  when: valid_urls is defined
-  tags:
-    - docker
-    - urls
-
-- name: Ensure the file is present
-  ansible.builtin.file:
-    path: "{{ docker_pihole_adlist }}"
-    state: touch  # Create the file if it doesn't exist
-    mode: "0664"
-  when: valid_urls is defined
-  tags:
-    - docker
-    - ensure_file
-
-- name: Ensure the file is empty
-  ansible.builtin.copy:
-    content: ""
-    dest: "{{ docker_pihole_adlist }}"
-    force: true  # Ensure the file is overwritten with empty content if it's not empty
-    mode: "0664"
-  when: valid_urls is defined
-  tags:
-    - docker
-    - ensure_file
-
-- name: Add custom URLs to adlist if defined
-  ansible.builtin.lineinfile:
-    path: "{{ docker_pihole_adlist }}"
-    line: "{{ item }}"
-    state: present
-  loop: "{{ valid_urls }}"
-  when: valid_urls is defined
-  tags:
-    - docker
-    - urls
-
-- name: Run command inside Docker container
-  community.docker.docker_container_exec:
-    container: "{{ docker_pihole_container_name }}"
-    command: /bin/bash -c "pihole -g"
-  register: docker_command_result
-  when: valid_urls is defined
-  tags:
-    - docker
-    - urls
-
-- name: Display command result
-  ansible.builtin.debug:
-    var: docker_command_result.stdout_lines
-  when: valid_urls is defined
-  tags:
-    - docker
-    - urls
-
 - name: Wait for the pihole container to be healthy
   community.docker.docker_container_info:
-    name: pihole
+    name: "{{ docker_pihole_container_name }}"
   register: container_info
   until: (container_info.container.State.Status == 'running' and container_info.container.State.Health.Status == 'healthy')
   retries: 15
@@ -149,22 +88,104 @@
   tags:
     - docker
 
-- name: Insert adlist into pihole if it doesn't already exist
-  ansible.builtin.shell: |
-    docker exec pihole sqlite3 /etc/pihole/gravity.db "INSERT INTO adlist (address, enabled, comment)
-    SELECT '{{ item }}', 1, 'Example Block List'
-    WHERE NOT EXISTS (SELECT 1 FROM adlist WHERE address = '{{ item }}');"
-  loop: "{{ valid_urls }}"
-  register: url_register
-  changed_when: url_register.rc != 0
+- name: Authenticate with Pi-hole API
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ docker_pihole_container_name }}"
+      - curl
+      - -sf
+      - -X
+      - POST
+      - http://localhost/api/auth
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - '{"password":"{{ web_pass }}"}'
+  register: __pihole_auth
+  no_log: true
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: __pihole_auth.rc == 0
   when: valid_urls is defined
   tags:
     - docker
+    - urls
 
-- name: Reload pihole
-  ansible.builtin.command: docker exec pihole pihole -g
-  register: reload_register
-  changed_when: reload_register.rc != 0
+- name: Extract Pi-hole session ID
+  ansible.builtin.set_fact:
+    __pihole_sid: "{{ (__pihole_auth.stdout | from_json).session.sid }}"
   when: valid_urls is defined
   tags:
     - docker
+    - urls
+
+- name: Get existing adlists from Pi-hole
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ docker_pihole_container_name }}"
+      - curl
+      - -sf
+      - "http://localhost/api/lists?type=block"
+      - -H
+      - "X-FTL-SID: {{ __pihole_sid }}"
+  register: __pihole_lists_raw
+  changed_when: false
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Extract existing adlist addresses
+  ansible.builtin.set_fact:
+    __pihole_existing_urls: "{{ (__pihole_lists_raw.stdout | from_json).lists | map(attribute='address') | list }}"
+  when: valid_urls is defined
+  tags:
+    - docker
+    - urls
+
+- name: Add adlist to Pi-hole via API
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ docker_pihole_container_name }}"
+      - curl
+      - -sf
+      - -X
+      - POST
+      - "http://localhost/api/lists?type=block"
+      - -H
+      - "X-FTL-SID: {{ __pihole_sid }}"
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - '{"address":"{{ item }}","enabled":true,"comment":"Added by Ansible"}'
+  loop: "{{ valid_urls }}"
+  when:
+    - valid_urls is defined
+    - item not in (__pihole_existing_urls | default([]))
+  register: __adlist_added
+  tags:
+    - docker
+    - urls
+
+- name: Update Pi-hole gravity
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ docker_pihole_container_name }}"
+      - pihole
+      - -g
+  changed_when: true
+  when:
+    - __adlist_added is defined
+    - __adlist_added is changed
+  tags:
+    - docker
+    - urls

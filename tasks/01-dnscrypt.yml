@@ -1,0 +1,107 @@
+---
+
+- name: Install dnscrypt-proxy package
+  ansible.builtin.apt:
+    name: dnscrypt-proxy
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Install standalone dnscrypt-proxy service unit without socket dependency
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/dnscrypt-proxy.service
+    content: |
+      [Unit]
+      Description=DNSCrypt-proxy client
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/sbin/dnscrypt-proxy -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+      Restart=always
+      DynamicUser=yes
+      CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Remove socket drop-in override directory if present
+  ansible.builtin.file:
+    path: /etc/systemd/system/dnscrypt-proxy.socket.d
+    state: absent
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Stop, disable, and mask dnscrypt-proxy socket to avoid port conflict
+  ansible.builtin.shell: |
+    systemctl stop dnscrypt-proxy.socket 2>/dev/null || true
+    systemctl disable dnscrypt-proxy.socket 2>/dev/null || true
+    systemctl mask dnscrypt-proxy.socket 2>/dev/null || true
+  changed_when: false
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Configure dnscrypt-proxy listen address in toml
+  ansible.builtin.lineinfile:
+    path: /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+    regexp: '^listen_addresses\s*='
+    line: "listen_addresses = ['{{ dnscrypt_listen_address }}:5300']"
+  when: ansible_facts['os_family'] == 'Debian'
+  register: __dnscrypt_toml_changed
+  tags:
+    - dnscrypt
+
+- name: Ensure dnscrypt-proxy cache directory is owned by service user
+  ansible.builtin.file:
+    path: /var/cache/dnscrypt-proxy
+    owner: _dnscrypt-proxy
+    state: directory
+    mode: "0755"
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Ensure dnscrypt-proxy log directory is owned by service user
+  ansible.builtin.file:
+    path: /var/log/dnscrypt-proxy
+    owner: _dnscrypt-proxy
+    state: directory
+    mode: "0755"
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Force systemd to reload its configuration
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Ensure dnscrypt-proxy service is enabled and started
+  ansible.builtin.systemd_service:
+    name: dnscrypt-proxy
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == 'Debian'
+  tags:
+    - dnscrypt
+
+- name: Restart dnscrypt-proxy if listen address changed
+  ansible.builtin.systemd_service:
+    name: dnscrypt-proxy
+    state: restarted
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - __dnscrypt_toml_changed is changed
+  tags:
+    - dnscrypt

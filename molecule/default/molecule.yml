@@ -3,26 +3,11 @@ role_name_check: 1
 dependency:
   name: galaxy
   options:
+    roles-path: "${MOLECULE_SCENARIO_DIRECTORY}/roles"
     role-file: ${MOLECULE_SCENARIO_DIRECTORY}/requirements.yml
 driver:
   name: docker
 platforms:
-  - name: ubuntu-2004
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2004}-ansible:latest"
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    privileged: true
-    pre_build_image: true
-  - name: ubuntu-2204
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2204}-ansible:latest"
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    privileged: true
-    pre_build_image: true
   - name: ubuntu-2404
     image: "geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2404}-ansible:latest"
     command: ${MOLECULE_DOCKER_COMMAND:-""}
@@ -31,16 +16,8 @@ platforms:
     cgroupns_mode: host
     privileged: true
     pre_build_image: true
-  - name: debian11
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-debian11}-ansible:latest"
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    privileged: true
-    pre_build_image: true
-  - name: debian12
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-debian12}-ansible:latest"
+  - name: debian13
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-debian13}-ansible:latest"
     command: ${MOLECULE_DOCKER_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
@@ -49,8 +26,8 @@ platforms:
     pre_build_image: true
 provisioner:
   name: ansible
-  config_options:
-    defaults:
-      vault_password_file: "${MOLECULE_SCENARIO_DIRECTORY}/files/.vault_pw"
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_SCENARIO_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/.."
   playbooks:
+    prepare: prepare.yml
     converge: ${MOLECULE_PLAYBOOK:-converge.yml}

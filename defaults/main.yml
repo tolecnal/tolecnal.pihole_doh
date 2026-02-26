@@ -11,7 +11,6 @@ docker_pihole_admin_port: 8053
 
 docker_pihole_host_dir_dnsmasqd: /home/docker/pihole/etc/dnsmasq.d/
 docker_pihole_host_dir_pihole: /home/docker/pihole/etc/pihole/
-docker_pihole_adlist: "{{ docker_pihole_host_dir_pihole }}adlists.list"
 docker_pihole_volumes:
   - "{{ docker_pihole_host_dir_pihole }}:/etc/pihole/"
   - "{{ docker_pihole_host_dir_dnsmasqd }}:/etc/dnsmasq.d/"
@@ -26,3 +25,5 @@ docker_pihole_rev_server_target: 192.168.1.1
 docker_pihole_rev_server_cidr: 192.168.1.0/24
 
 docker_pihole_custom_lists: []
+
+dnscrypt_listen_address: "0.0.0.0"

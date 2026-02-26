@@ -5,23 +5,63 @@
   gather_facts: true
 
   tasks:
+    - name: Check dnscrypt-proxy service is active
+      ansible.builtin.command: systemctl is-active dnscrypt-proxy
+      register: service_active
+      changed_when: false
+      failed_when: false
 
-    - name: Verify .zshrc exists
-      ansible.builtin.stat:
-        path: ~/.zshrc
-      register: conf_result
+    - name: Assert dnscrypt-proxy service is active
+      ansible.builtin.assert:
+        that: service_active.rc == 0
+        fail_msg: "dnscrypt-proxy service is not active (state: {{ service_active.stdout }})"
 
-    - name: The zsh configuration file exists
-      ansible.builtin.debug:
-        msg: "The zsh configuration file exists"
-      when: conf_result.stat.exists
+    - name: Check dnscrypt-proxy service is enabled
+      ansible.builtin.command: systemctl is-enabled dnscrypt-proxy
+      register: service_enabled
+      changed_when: false
+      failed_when: false
 
-    - name: Verify that p10k config file exists
-      ansible.builtin.stat:
-        path: ~/.p10k.zsh
-      register: tpm_result
+    - name: Assert dnscrypt-proxy service is enabled
+      ansible.builtin.assert:
+        that: service_enabled.rc == 0
+        fail_msg: "dnscrypt-proxy service is not enabled (state: {{ service_enabled.stdout }})"
 
-    - name: The p10k config file is installed
-      ansible.builtin.debug:
-        msg: "The p10k config file is installed"
-      when: tpm_result.stat.exists
+    - name: Assert dnscrypt-proxy is listening on port 5300
+      ansible.builtin.wait_for:
+        host: "{{ ansible_facts['default_ipv4']['address'] }}"
+        port: 5300
+        timeout: 10
+        msg: "dnscrypt-proxy is not listening on port 5300"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Docker service is running
+      ansible.builtin.assert:
+        that:
+          - "'docker.service' in ansible_facts.services"
+          - "ansible_facts.services['docker.service'].state == 'running'"
+        fail_msg: "Docker service is not running"
+
+    - name: Get Pi-hole container info
+      community.docker.docker_container_info:
+        name: pihole
+      register: pihole_container
+
+    - name: Assert Pi-hole container exists and is running
+      ansible.builtin.assert:
+        that:
+          - pihole_container.exists
+          - pihole_container.container.State.Status == 'running'
+        fail_msg: "Pi-hole container is not running"
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: apt
+
+    - name: Assert dnscrypt-proxy package is installed
+      ansible.builtin.assert:
+        that:
+          - "'dnscrypt-proxy' in ansible_facts.packages"
+        fail_msg: "dnscrypt-proxy package is not installed"

@@ -1,20 +1,32 @@
 ---
 
+- name: Assert supported operating system version
+  ansible.builtin.assert:
+    that:
+      - >-
+        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_major_version'] | int >= 24) or
+        (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] | int >= 13)
+    fail_msg: >-
+      Unsupported OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
+      This role requires Ubuntu 24 or higher, or Debian 13 or higher.
+  tags:
+    - always
+
 - name: Ensure Docker is installed
   ansible.builtin.include_role:
     name: geerlingguy.docker
   tags:
     - docker
 
-- name: Run prerequsites check
+- name: Run prerequisites check
   ansible.builtin.include_tasks: 00-passwords.yml
   tags:
     - passwords
 
-- name: Setup Cloudflare Proxy
-  ansible.builtin.include_tasks: 01-cloudflare.yml
+- name: Setup dnscrypt-proxy
+  ansible.builtin.include_tasks: 01-dnscrypt.yml
   tags:
-    - cloudflare
+    - dnscrypt
 
 - name: Configure network settings
   ansible.builtin.include_tasks: 02-network.yml

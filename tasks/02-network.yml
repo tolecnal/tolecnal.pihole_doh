@@ -26,16 +26,11 @@
   tags:
     - network
 
-- name: Install yq python package
-  ansible.builtin.pip:
-    name: yq
-  when: netplan_folder.stat.exists
-  tags:
-    - network
-
-- name: Install jq apt package
+- name: Install yq and jq apt packages
   ansible.builtin.apt:
-    pkg: jq
+    name:
+      - yq
+      - jq
     state: present
   when: netplan_folder.stat.exists
   tags:
@@ -60,21 +55,32 @@
   changed_when: yq_res.rc != 0
   with_nested:
     - "{{ netplan_files.files }}"
-    - "{{ network_cards.stdout }}"
+    - "{{ network_cards.stdout_lines }}"
   when: netplan_folder.stat.exists
   tags:
     - network
 
-- name: Gather service facts
-  ansible.builtin.service_facts:
-
-- name: Ensure the systemd-resolved service is stopped and disabled
-  ansible.builtin.systemd_service:
-    name: systemd-resolved
-    state: stopped
-    enabled: false
-  when:
-    - ansible_os_family == 'Debian'
-    - "'systemd-resolved.service' in ansible_facts.services"
+- name: Stop and mask services that may be holding port 53
+  ansible.builtin.shell: |
+    systemctl stop systemd-resolved.socket 2>/dev/null || true
+    systemctl mask systemd-resolved.socket 2>/dev/null || true
+    systemctl stop systemd-resolved 2>/dev/null || true
+    systemctl mask systemd-resolved 2>/dev/null || true
+    systemctl stop dnscrypt-proxy.socket 2>/dev/null || true
+    systemctl mask dnscrypt-proxy.socket 2>/dev/null || true
+  changed_when: false
+  when: ansible_facts['os_family'] == 'Debian'
   tags:
     - network
+
+- name: Point resolv.conf at a real resolver when netplan is absent
+  ansible.builtin.shell: |
+    [ -L /etc/resolv.conf ] && rm -f /etc/resolv.conf
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf
+  changed_when: false
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - not netplan_folder.stat.exists
+  tags:
+    - network
+
