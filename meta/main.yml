@@ -1,11 +1,8 @@
 ---
-dependencies:
-  - name: geerlingguy.docker
-
 galaxy_info:
   role_name: pihole_doh
   namespace: tolecnal
-  author: "Jostein Elvaker Haande <tolecnal@tolecnal.net"
+  author: "Jostein Elvaker Haande <tolecnal@tolecnal.net>"
   description: Deploy pihole with DNSCrypt proxy using dnscrypt-proxy for encrypted DNS
   license: "license (BSD, MIT)"
   min_ansible_version: "2.16.0"
@@ -24,3 +21,6 @@ galaxy_info:
     - dnscrypt
     - tools
     - linux
+
+dependencies:
+  - role: geerlingguy.docker
